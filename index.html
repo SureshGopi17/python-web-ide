@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Python Web IDE</title>
+  <!-- SEO & Meta Tags -->
+  <meta name="description" content="A powerful, browser-based Python IDE with live execution, resizable panels, variables inspector, and premium aesthetics.">
+  
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  
+  <!-- Custom CSS -->
+  <link rel="stylesheet" href="style.css">
+  
+  <!-- Monaco Editor Loader -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs/loader.min.js"></script>
+  
+  <!-- Pyodide for In-Browser Python Execution -->
+  <script src="https://cdn.jsdelivr.net/pyodide/v0.26.1/full/pyodide.js"></script>
+  
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body>
+  <div class="ide-container" id="ideContainer">
+    <!-- Main Workspace -->
+    <div class="main-layout" id="mainLayout">
+      
+      <!-- Left Panel: Code Editor -->
+      <div class="panel left-panel" id="editorPanel">
+        <!-- Panel Header -->
+        <div class="panel-header">
+          <div class="header-left">
+            <div class="custom-select-wrapper">
+              <select id="pythonVersionSelect" class="custom-select">
+                <option value="pyodide">Python 3.10</option>
+                <option value="pyodide-dev">Python 3.11 (Experimental)</option>
+              </select>
+              <i data-lucide="chevron-down" class="select-chevron"></i>
+            </div>
+            <!-- Pyodide Loader Status -->
+            <div class="status-indicator" id="pyodideStatus" title="Python runtime status">
+              <span class="status-dot pulsing"></span>
+              <span class="status-text">Starting runtime...</span>
+            </div>
+          </div>
+          
+          <div class="header-right">
+            <button id="saveBtn" class="header-action-btn" title="Save Code (Ctrl+S)">
+              <i data-lucide="file-down"></i>
+            </button>
+            <button id="resetBtn" class="header-action-btn" title="Reset Code">
+              <i data-lucide="rotate-ccw"></i>
+            </button>
+            <button id="fullscreenBtn" class="header-action-btn" title="Toggle Fullscreen">
+              <i data-lucide="maximize-2"></i>
+            </button>
+          </div>
+        </div>
+        
+        <!-- Code Editor Area -->
+        <div class="editor-workspace">
+          <!-- Variables Inspector Panel (Hidden by default, toggled by bug icon) -->
+          <div class="variables-panel" id="variablesPanel">
+            <div class="variables-header">
+              <span>Variables Inspector</span>
+              <button id="closeVariablesBtn"><i data-lucide="x"></i></button>
+            </div>
+            <div class="variables-content" id="variablesContent">
+              <div class="empty-variables-state">Run code to inspect variables.</div>
+            </div>
+          </div>
+          
+          <!-- Monaco Editor Target -->
+          <div id="monacoEditor"></div>
+        </div>
+        
+        <!-- Panel Footer -->
+        <div class="panel-footer">
+          <button id="debugBtn" class="debugger-btn" title="Toggle Variables Inspector">
+            <div class="bug-icon-circle">
+              <i data-lucide="bug"></i>
+            </div>
+          </button>
+          
+          <button id="runBtn" class="run-btn" disabled>
+            <i data-lucide="play" class="run-icon"></i>
+            <span id="runBtnText">Loading...</span>
+          </button>
+        </div>
+      </div>
+      
+      <!-- Vertical Resizer Splitter -->
+      <div class="splitter splitter-vertical" id="verticalSplitter">
+        <div class="splitter-handle">
+          <span></span>
+          <span></span>
+          <span></span>
+        </div>
+      </div>
+      
+      <!-- Right Panel: Input & Output -->
+      <div class="panel right-panel" id="rightPanel">
+        <!-- Input Sub-Panel -->
+        <div class="sub-panel" id="inputPanel">
+          <div class="panel-header resizable-header">
+            <div class="header-left">
+              <span>Input</span>
+            </div>
+            <div class="header-right">
+              <i data-lucide="chevron-down" class="panel-toggle-icon"></i>
+            </div>
+          </div>
+          <div class="sub-panel-body">
+            <textarea id="inputTextarea" placeholder="Enter standard input (stdin) here..."></textarea>
+          </div>
+        </div>
+        
+        <!-- Horizontal Resizer Splitter -->
+        <div class="splitter splitter-horizontal" id="horizontalSplitter">
+          <div class="splitter-handle">
+            <span></span>
+            <span></span>
+            <span></span>
+          </div>
+        </div>
+        
+        <!-- Output Sub-Panel -->
+        <div class="sub-panel" id="outputPanel">
+          <div class="panel-header resizable-header">
+            <div class="header-left">
+              <span>Output</span>
+            </div>
+            <div class="header-right">
+              <i data-lucide="chevron-down" class="panel-toggle-icon"></i>
+            </div>
+          </div>
+          <div class="sub-panel-body output-body">
+            <div class="output-console" id="outputConsole">
+              <div class="console-welcome">Python Web IDE Console ready.</div>
+            </div>
+            
+            <!-- Floating Chat Assistant Button -->
+            <button class="chat-assistant-btn" id="chatAssistantBtn" title="Coding Assistant">
+              <i data-lucide="message-square"></i>
+            </button>
+          </div>
+        </div>
+      </div>
+      
+    </div>
+  </div>
+  
+  <!-- Script Hook -->
+  <script src="app.js"></script>
+</body>
+</html>
