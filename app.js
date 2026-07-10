@@ -8,8 +8,15 @@ let runBtnText = document.getElementById('runBtnText');
 let pyodideStatus = document.getElementById('pyodideStatus');
 let defaultCode = `print("Become the programmer you're meant to be!")\n`;
 
-// Monaco Editor Initialization
-require.config({ paths: { vs: 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs' } });
+// Monaco Editor Initialization (try local folder first, then fall back to CDNjs)
+require.config({ 
+  paths: { 
+    vs: [
+      'libs/monaco/vs',
+      'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs'
+    ]
+  } 
+});
 
 function initMonaco() {
   // Register custom theme
@@ -95,31 +102,69 @@ window.print_matplotlib_image = (base64Data) => {
   consoleElement.scrollTop = consoleElement.scrollHeight;
 };
 
-// Initialize Pyodide
+// Initialize Pyodide with offline support
 async function initPyodide() {
-  try {
-    pyodide = await loadPyodide({
-      indexURL: "https://cdn.jsdelivr.net/pyodide/v0.26.1/full/"
-    });
+  const isOffline = !navigator.onLine;
+  const localIndexURL = "libs/pyodide/";
+  const cdnIndexURL = "https://cdn.jsdelivr.net/pyodide/v0.26.1/full/";
+  
+  // Choose URL based on online status
+  let pyodideIndexURL = isOffline ? localIndexURL : cdnIndexURL;
+  
+  const statusDot = pyodideStatus.querySelector('.status-dot');
+  const statusText = pyodideStatus.querySelector('.status-text');
+
+  async function loadPyodideInstance(indexUrl, modeName) {
+    pyodide = await loadPyodide({ indexURL: indexUrl });
     
-    // Load micropip to support installing arbitrary pure-python packages from PyPI
-    await pyodide.loadPackage("micropip");
+    // Safe loading of micropip (don't crash the whole runtime if network isn't available)
+    try {
+      if (indexUrl.startsWith('http') || navigator.onLine) {
+        await pyodide.loadPackage("micropip");
+      }
+    } catch (pipErr) {
+      console.warn("Micropip failed to load (offline). PyPI package imports disabled.", pipErr);
+    }
     
     isPyodideLoading = false;
-    
-    // Update loading UI status
-    const statusDot = pyodideStatus.querySelector('.status-dot');
-    const statusText = pyodideStatus.querySelector('.status-text');
     statusDot.className = 'status-dot ready';
-    statusText.textContent = 'Ready';
-    
+    statusText.textContent = modeName;
     runBtnText.textContent = 'Run Code';
     runBtn.removeAttribute('disabled');
-    
-    showToast('Python environment and package loader ready!');
+    showToast(`Python environment ready! (${modeName})`);
+  }
+
+  try {
+    // Try primary index URL (local if offline, CDN if online)
+    await loadPyodideInstance(pyodideIndexURL, isOffline ? "Ready (Offline)" : "Ready");
   } catch (error) {
-    console.error("Pyodide failed to load:", error);
-    const statusText = pyodideStatus.querySelector('.status-text');
+    console.error("Pyodide primary load failed:", error);
+    
+    // Fallback: If primary was local and we failed (e.g. CORS block under file://), try CDN if we are online!
+    if (pyodideIndexURL === localIndexURL && navigator.onLine) {
+      console.log("Local load failed. Trying CDN fallback...");
+      statusText.textContent = 'Loading CDN fallback...';
+      try {
+        await loadPyodideInstance(cdnIndexURL, "Ready (CDN)");
+        return;
+      } catch (cdnErr) {
+        console.error("CDN fallback failed:", cdnErr);
+      }
+    }
+    
+    // Fallback: If primary was CDN and failed (e.g. wifi failed during load), try local fallback!
+    if (pyodideIndexURL === cdnIndexURL) {
+      console.log("CDN load failed. Trying local fallback...");
+      statusText.textContent = 'Loading local fallback...';
+      try {
+        await loadPyodideInstance(localIndexURL, "Ready (Offline Fallback)");
+        return;
+      } catch (localErr) {
+        console.error("Local fallback failed:", localErr);
+      }
+    }
+
+    statusDot.className = 'status-dot';
     statusText.textContent = 'Load failed';
     showToast('Failed to load Python. Check console.');
   }
@@ -167,17 +212,26 @@ runBtn.addEventListener('click', async () => {
   });
   
   try {
-    appendConsoleLine("Checking code imports and loading required packages...", 'system');
-    
-    // 1. Automatically load imported packages from official index
-    await pyodide.loadPackagesFromImports(code, {
-      messageCallback: (msg) => {
-        appendConsoleLine(msg, 'system');
-      },
-      errorCallback: (err) => {
-        appendConsoleLine("Package warning: " + err, 'system');
+    // Check if we are online before looking for packages
+    if (navigator.onLine) {
+      appendConsoleLine("Checking code imports and loading required packages...", 'system');
+      try {
+        // Automatically load imported packages from official index
+        await pyodide.loadPackagesFromImports(code, {
+          messageCallback: (msg) => {
+            appendConsoleLine(msg, 'system');
+          },
+          errorCallback: (err) => {
+            appendConsoleLine("Package warning: " + err, 'system');
+          }
+        });
+      } catch (pkgErr) {
+        console.warn("Could not load packages from imports:", pkgErr);
+        appendConsoleLine("Warning: Could not fetch packages (possible offline connection). Running with base Python.", 'system');
       }
-    });
+    } else {
+      appendConsoleLine("Offline Mode: Skipping external package installations. Running code with base Python libraries...", 'system');
+    }
     
     runBtnText.textContent = 'Running...';
     
